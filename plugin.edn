@@ -1,0 +1,6 @@
+{:name "lt_scrubber"
+ :version "0.0.1"
+ :author ""
+ :source ""
+ :desc ""
+ :behaviors "lt_scrubber.behaviors"}
