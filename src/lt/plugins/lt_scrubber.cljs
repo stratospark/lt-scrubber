@@ -2,10 +2,8 @@
   (:require [lt.object :as object]
             [lt.objs.command :as cmd]
             [lt.objs.editor :as editor]
-            [lt.objs.editor.pool :as pool]
-            [lt.util.dom :as dom]
-            [crate.binding :as binding])
-  (:require-macros [lt.macros :refer [defui behavior]]))
+            [lt.objs.editor.pool :as pool])
+  (:require-macros [lt.macros :refer [behavior]]))
 
 ;; These are some regex helper functions to find the position
 ;; of matches. This is currently not built into Clojurescript.
@@ -216,38 +214,19 @@
                         (.log js/console "eval on change")
                         (js/setTimeout #(cmd/exec! :eval-editor-form) 0))))
 
-;; This is a UI element that allows you to toggle the scrubbing
-;; functionality on or off
-(defui scrubber-toggler [this]
-  [:div#instarepl
-   [:span
-    {:class (binding/bound this #(str "livetoggler " (when-not (:active %) "off")))} "scrubber"
-    ]
-   ]
-  :click (fn [e]
-           (.log js/console "you clicked it!")
-           (dom/prevent e)
-           (object/raise (:editor @this) :scrubber.toggle!)))
-
-;; This Light Table object template contains the UI and whether
-;; the scrubber is active or not. It attaches the UI to the
-;; editor DOM
+;; This Light Table object template contains whether the
+;; scrubber is active or not.
 (object/object* ::scrubber
                 :tags #{::scrubber}
                 :name "Scrubber Toggler"
                 :active true
                 :init (fn [this editor]
-                        (object/merge! this {:editor editor})
-                        (let [editor-content (object/->content editor)
-                              frame (dom/parent editor-content)
-                              toggler (scrubber-toggler this)]
-                          (dom/append toggler editor-content)
-                          (dom/append frame toggler))))
+                        (object/merge! this {:editor editor})))
 
-;; This function removes the scrubbing UI from the editor
+;; This function removes the scrubbing behavior from the editor
 ;; and removes the mousedown event listener
 (defn scrubber-off [editor]
-  (print "scrubber-off")
+  (print "Scrubber Off")
   (object/remove-tags editor [:editor.scrubber.active])
   (when-let [scrubber (::scrubber @editor)]
     (object/merge! scrubber {:active false}))
@@ -259,7 +238,7 @@
 ;; exist, and adds it to the editor, as well as registering
 ;; event listeners for the mousedown event
 (defn scrubber-on [editor]
-  (print "scrubber-on")
+  (print "Scrubber On")
   (when-not (::scrubber @editor)
     (object/merge! editor {::scrubber (object/create ::scrubber editor)}))
   (object/add-tags editor [:editor.scrubber.active])
@@ -274,7 +253,6 @@
           :desc "Editor: Toggle scrubbing mode"
           :triggers #{:scrubber.toggle!}
           :reaction (fn [editor]
-                      (print "behavior scrubber-toggle")
                       (if (object/has-tag? editor :editor.scrubber.active)
                         (scrubber-off editor)
                         (scrubber-on editor))))
