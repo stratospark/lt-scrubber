@@ -1,3 +1,2 @@
 {:+ {:app [(:lt.objs.plugins/load-js "lt_scrubber_compiled.js" true)]
-     :editor.scrubber [:lt.plugins.lt-scrubber/scrubber-toggle]}}
-;;     :lt-scrubber.hello [:lt.plugins.lt-scrubber/scrubber-toggle]}}
+     :editor [:lt.plugins.lt-scrubber/scrubber-toggle]}}
