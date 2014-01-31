@@ -1,14 +1,30 @@
+;; This is a Light Table plugin that will allow you to rapidly
+;; change the value of a number with the mouse or keyboard, then
+;; automatically evaluate your code so you can get instant feedback.
+;; It works great for visualizing CSS changes live, as well as
+;; for getting a feel for data flow thorugh Clojure/Clojurescript code
+;; with form-eval and watches.
+;;
+;; This code is largely a port of Peter Flynn's everyscrub extension
+;; for the Brackets editor: https://github.com/peterflynn/everyscrub
+;;
+;; I am also hugely inspired by Bret Victor's awesome work. In this case
+;; specifically Tangle (http://worrydream.com/Tangle/). I'm hoping
+;; we can push the limits of programming UX with Light Table!
+
+;; Here we're requiring the bare minimum Light Table namespaces
 (ns lt.plugins.lt-scrubber
   (:require [lt.object :as object]
             [lt.objs.command :as cmd]
             [lt.objs.editor :as editor]
-            [lt.objs.editor.pool :as pool])
+            [lt.objs.editor.pool :as pool]
+            [lt.util.dom :as dom])
   (:require-macros [lt.macros :refer [behavior]]))
 
 ;; These are some regex helper functions to find the position
 ;; of matches. This is currently not built into Clojurescript.
 ;; We will be using various regex to match for the different
-;; types of values that can be scrubbed
+;; types of values that can be scrubbed.
 ;;
 ;; http://stackoverflow.com/questions/18735665/how-can-i-get-the-positions-of-regex-matches-in-clojurescript
 (defn regex-modifiers
@@ -29,6 +45,7 @@
         res))))
 
 (comment (
+  ;; regex playground!
   (. (js/RegExp. (.-source #"-?\d*\.?\d+") (str "g")) exec "1 2 3")
   (. (js/RegExp. (.-source #"h") (str "g")) exec "this is h h")))
 
@@ -40,9 +57,6 @@
   (filter (fn [x]
             (let [[match-pos match-str] x
                   end-pos (+ match-pos (count match-str))]
-              (comment (print (str "match-pos: " match-pos ", "
-                           "target-pos: " target-pos ", "
-                           "end-pos: " end-pos)))
               (and (<= match-pos target-pos)
                        (>= end-pos target-pos))))
           (re-pos regex string)))
@@ -58,23 +72,10 @@
 (find-match-near-pos simple-number-regex "I have 1 cookie 30" 17)
 
 ;; We then parse a line of text using a
-;; TODO: is this extraneous?
+;; TODO: is this extraneous? maybe it'll be needed for multiple regex types
 (defn parse-for-scrub [line-text target-pos]
   (let [match (find-match-near-pos simple-number-regex line-text target-pos)]
     (flatten match)))
-
-(defn adder [x y]
-  (+ x y))
-
-(defn circle-radius [r]
-  (* 3.1492653 (* r r)))
-
-(adder 144 244)
-
-(circle-radius 219.6)
-
-;; This holds the global state for this plugin
-(def app-state (atom {:last-range 0}))
 
 ;; This returns the number of places to the right of a decimal point
 ;; in a string representation of an integer or floating point number
@@ -107,112 +108,108 @@
 (get-next-value "0.00" 1)
 (get-next-value "0.00" -1)
 
-;; When the user mouses down on a valid value, we are going to
-;; dynamically add and remove mousemove/mouseup handlers that
-;; will scrub the value up or down based on the mouse position
-(defn attach-scrub-handlers [e ed value-to-scrub pos]
-  (if (> (count value-to-scrub) 0)
-    (do
-      (. e (stopPropagation))
-      (. e (preventDefault))
-      (let [[scrub-pos scrub-value] value-to-scrub
+;; This holds the global state for this plugin
+(def app-state (atom {:last-range 0
+                      :origin ""}))
+
+;; This is where the magic happens. We update the selected value
+;; based on whether we are handling a continuous mouse scrub or
+;; a single keyboard nudge. Most of the logic is shared, except
+;; we need to dynamically add and remove mousemove/mouseup handlers.
+(defn handle-keyboard-or-mouse-scrub [{:keys [type delta e]}]
+  (if (or
+       (= type :keyboard)
+       ;; Alt-mouse click on window/linux, command-mouse on mac
+       (and (= type :mouse) (or (.-metaKey e) (.-altKey e))))
+      (let [ed (pool/last-active)
+            cm (editor/->cm-ed ed)
+
+            ;; We pick out the range of text that matches the regex
+            ;; based on the position of the mouse or the keyboard cursor.
+            pos  (condp = type
+                       :mouse (.. cm (coordsChar #js {:left (.-pageX e) :top (.-pageY e)}))
+                       :keyboard (.getCursor cm))
+            line-text (editor/line ed (.-line pos))
+            value-to-scrub (parse-for-scrub line-text (.-ch pos))
+            [scrub-pos scrub-value] value-to-scrub
             last-range {:start {:line (.-line pos)
                                 :ch scrub-pos}
                         :end {:line (.-line pos)
                               :ch (+ scrub-pos (count (str scrub-value)))}}
-            cm (editor/->cm-ed ed)
-            scroller (.getScrollerElement cm)
-            down-x (.-pageX e)
+
             last-text scrub-value
-            origin (str "*scrubber" (rand-int 100000)) ;; set unique label for undo. TODO: monotonic increment?
-            move-handler (fn [e]
-                           (. e (stopPropagation))
-                           (. e (preventDefault))
-                           (let [px-delta (- (.-pageX e) down-x)
-                                 val-delta (bit-or (/ px-delta 8) 0)
-                                 new-text (get-next-value scrub-value val-delta)
-                                 last-range (get-in @app-state [:last-range])]
-                             (if (not= new-text last-text)
-                               (do
-                                 (.replaceRange cm new-text
-                                                (clj->js (:start last-range))
-                                                (clj->js (:end last-range))
-                                                origin)
-                                 (swap! app-state update-in [:last-range :end :ch]
-                                        #(+ (get-in last-range [:start :ch]) (count new-text)))
-                                 (editor/set-selection ed pos) ;; temporarily deselect text, so entire form evals
-                                 (cmd/exec! :eval-editor-form) ;; TODO: speed this up somehow? avoid saves?
-                                 (editor/set-selection ed (:start last-range) (:end last-range))
-                                 ))))
-                             ]
+
+            ;; This is a unique string for CodeMirror's replaceRange, so that
+            ;; we can undo to before the beginning of a scrub action
+            origin (str "*scrubber" (:origin (swap! app-state update-in [:origin] inc)))
+
+            ;; This method performs the scrub after setting up the mouse or
+            ;; keyboard specific logic
+            do-scrub! (fn [val-delta]
+                        (let [new-text (get-next-value scrub-value val-delta)
+                              last-range (get-in @app-state [:last-range])]
+                          (if (not= new-text last-text)
+                            (do
+                              (.replaceRange cm new-text
+                                             (clj->js (:start last-range))
+                                             (clj->js (:end last-range))
+                                             origin)
+                              (swap! app-state update-in [:last-range :end :ch]
+                                     #(+ (get-in last-range [:start :ch]) (count new-text)))
+                              (editor/set-selection ed pos) ;; temporarily deselect text, so entire form evals
+                              (cmd/exec! :eval-editor-form) ;; TODO: is there anyway to speed this up?
+                              (editor/set-selection ed (:start last-range) (:end last-range)) ;; reselect text
+                              ))))]
+
+        ;; Update the state with this initial selected range before scrubbing
         (swap! app-state update-in [:last-range] (fn [] last-range))
-        (editor/set-selection ed (:start last-range) (:end last-range))
-        (.. window/document
-            (addEventListener "mousemove" move-handler))
-        (.. window/document
-            (addEventListener "mouseup"
-                              (fn [e]
-                                (.. window/document (removeEventListener "mousemove" move-handler)))))))))
+        (editor/set-selection ed (:start last-range) (:end last-range)) ;; select the matched value
 
-(defn mouse-down-fn* [e]
-  "Real handler for mouse-down on a LightTable editor pane"
-    (if (or (.-metaKey e)
-            (.-altKey e))
-      (let [ed (pool/last-active)
-            cm (editor/->cm-ed ed)
-            page-x (.-pageX e)
-            page-y (.-pageY e)
-            pos (.. cm (coordsChar #js {:left page-x :top page-y}))
-            line-text (editor/line ed (.-line pos))
-            value-to-scrub (parse-for-scrub line-text (.-ch pos))]
-        (attach-scrub-handlers e ed value-to-scrub pos))))
+        ;; Input type specific handling
+        (condp = type
+          :mouse (let [scroller (.getScrollerElement cm)
+                       down-x (.-pageX e)
 
-;; TODO: can we just use the mouse-down-fn* directly?
+                       ;; We want the mouse cursor to be a resizer, but to reset it
+                       ;; to whatever it used to be after the handler is removed.
+                       set-css-cursor (fn [cursors]
+                                        (let [[val-1 val-2 val-3] cursors]
+                                          (dom/css (dom/$ ".CodeMirror-lines") {:cursor val-1})
+                                          (dom/css (dom/$ ".CodeMirror-gutter-elt") {:cursor val-2})
+                                          (dom/css (dom/$ "html") {:cursor val-3})))
+                       old-css-cursors [(dom/css (dom/$ ".CodeMirror-lines") :cursor)
+                                        (dom/css (dom/$ ".CodeMirror-gutter-elt") :cursor)
+                                        (dom/css (dom/$ "html") :cursor)]
+
+                       ;; Scrub based on how far the mouse moves left or right from select value
+                       move-handler (fn [e]
+                                      (. e (stopPropagation))
+                                      (. e (preventDefault))
+                                      (let [px-delta (- (.-pageX e) down-x)
+                                            val-delta (bit-or (/ px-delta 8) 0)]
+                                        (do-scrub! val-delta)))]
+
+                   (set-css-cursor (repeat 3 "col-resize"))
+
+                   ;; Add the mouse handlers temporarily until mouse click is released
+                   (.. window/document (addEventListener "mousemove" move-handler))
+                   (.. window/document (addEventListener "mouseup"
+                     (fn [e]
+                       (.. window/document (removeEventListener "mousemove" move-handler))
+                       (set-css-cursor old-css-cursors)))))
+
+          :keyboard (do-scrub! delta)))))
+
+;; We send the mouse-event to the scrub handler method for processing
 (defn mouse-down-fn [e]
-  (mouse-down-fn* e))
+  (handle-keyboard-or-mouse-scrub {:type :mouse
+                                   :e e}))
 
 ;; We also support nudging a value by a small amount using the keyboard
+;; dir will be 1 for incrementing and -1 for decrementing
 (defn nudge [dir]
-  ;; handle keyboard specific
-  (let [ed (pool/last-active)
-        cm (editor/->cm-ed ed)
-        pos (.getCursor cm)
-        line-text (editor/line ed (.-line pos))
-        value-to-scrub (parse-for-scrub line-text (.-ch pos))
-        [scrub-pos scrub-value] value-to-scrub
-        last-text scrub-value
-        origin (str "*scrubber" (rand-int 100000)) ;; set unique label for undo. TODO: monotonic increment?
-                    last-range {:start {:line (.-line pos)
-                                :ch scrub-pos}
-                        :end {:line (.-line pos)
-                              :ch (+ scrub-pos (count (str scrub-value)))}}
-        ]
-    (print "nudge " dir)
-    (swap! app-state update-in [:last-range] (fn [] last-range))
-    (editor/set-selection ed (:start last-range) (:end last-range))
-    (let [new-text (get-next-value scrub-value dir)
-          last-range (get-in @app-state [:last-range])]
-      (if (not= new-text last-text)
-        (do
-          (.replaceRange cm new-text
-                         (clj->js (:start last-range))
-                         (clj->js (:end last-range))
-                         origin)
-          (swap! app-state update-in [:last-range :end :ch]
-                 #(+ (get-in last-range [:start :ch]) (count new-text)))
-          (editor/set-selection ed pos) ;; temporarily deselect text, so entire form evals
-          (cmd/exec! :eval-editor-form) ;; TODO: speed this up somehow? avoid saves?
-          (editor/set-selection ed (:start last-range) (:end last-range))
-                                 )))))
-
-;; TODO: can we just use an already existing behavior
-(behavior ::eval-on-change
-          :triggers #{:change}
-          ;;:debounce 200
-          :reaction (fn [this]
-                      (do
-                        (.log js/console "eval on change")
-                        (js/setTimeout #(cmd/exec! :eval-editor-form) 0))))
+  (handle-keyboard-or-mouse-scrub {:type :keyboard
+                                   :delta dir}))
 
 ;; This Light Table object template contains whether the
 ;; scrubber is active or not.
