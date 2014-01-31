@@ -147,7 +147,9 @@
                                      #(+ (get-in last-range [:start :ch]) (count new-text)))
                               (editor/set-selection ed pos) ;; temporarily deselect text, so entire form evals
                               (cmd/exec! :eval-editor-form) ;; TODO: is there anyway to speed this up?
-                              (editor/set-selection ed (:start last-range) (:end last-range)) ;; reselect text
+                              (editor/set-selection ed
+                                                    (get-in @app-state [:last-range :start])
+                                                    (get-in @app-state [:last-range :end])) ;; reselect text
                               ))))]
 
         ;; Update the state with this initial selected range before scrubbing
@@ -158,6 +160,7 @@
         (condp = type
           :mouse (let [scroller (.getScrollerElement cm)
                        down-x (.-pageX e)
+
 
                        ;; We want the mouse cursor to be a resizer, but to reset it
                        ;; to whatever it used to be after the handler is removed.
@@ -175,8 +178,9 @@
                                       (. e (stopPropagation))
                                       (. e (preventDefault))
                                       (let [px-delta (- (.-pageX e) down-x)
-                                            val-delta (bit-or (/ px-delta 8) 0)]
-                                        (do-scrub! val-delta)))]
+                                            val-delta (bit-or (/ px-delta 8) 0)
+                                            scrub-multiplier (if (.-shiftKey e) 10 1)]
+                                        (do-scrub! (* val-delta scrub-multiplier))))]
 
                    (set-css-cursor (repeat 3 "col-resize"))
 
