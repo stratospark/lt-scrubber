@@ -1,16 +1,5 @@
-;; This is a Light Table plugin that will allow you to rapidly
-;; change the value of a number with the mouse or keyboard, then
-;; automatically evaluate your code so you can get instant feedback.
-;; It works great for visualizing CSS changes live, as well as
-;; for getting a feel for data flow thorugh Clojure/Clojurescript code
-;; with form-eval and watches.
-;;
-;; This code is largely a port of Peter Flynn's everyscrub extension
-;; for the Brackets editor: https://github.com/peterflynn/everyscrub
-;;
-;; I am also hugely inspired by Bret Victor's awesome work. In this case
-;; specifically Tangle (http://worrydream.com/Tangle/). I'm hoping
-;; we can push the limits of programming UX with Light Table!
+;; Scrubber for Light Table 0.0.1
+;; (c) 2014 Patrick Rodriguez. MIT open-source license.
 
 ;; Here we're requiring the bare minimum Light Table namespaces
 (ns lt.plugins.lt-scrubber
