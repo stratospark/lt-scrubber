@@ -1,4 +1,4 @@
-;; Scrubber for Light Table 0.0.1
+;; Scrubber for Light Table
 ;; (c) 2014 Patrick Rodriguez. MIT open-source license.
 
 ;; Here we're requiring the bare minimum Light Table namespaces

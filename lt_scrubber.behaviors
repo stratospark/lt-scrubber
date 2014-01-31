@@ -1,2 +1,2 @@
-{:+ {:app [(:lt.objs.plugins/load-js "lt_scrubber_compiled.js" true)]
+{:+ {:app [(:lt.objs.plugins/load-js "scrubber_compiled.js" true)]
      :editor [:lt.plugins.lt-scrubber/scrubber-toggle]}}
