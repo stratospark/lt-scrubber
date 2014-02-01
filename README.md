@@ -12,6 +12,14 @@ To activate, run the command **Editor: Toggle scrubbing mode**. Find a number th
 
 You can also use the keyboard to "nudge" a value by the smallest increment or decrement possible. Move your cursor of the value you want to nudge then hold **shift-ctrl-up** or **shift-ctrl-down**.
 
+Finally, you can add the **activate-scrubber** behavior to *users.behaviors* if you want scrubbing mode to automatically be available in a given file type:
+```
+:editor.clojure [(:lt.objs.langs.clj/print-length 1000)
+                  :lt.plugins.lt-scrubber/activate-scrubber]
+
+:editor.css [:lt.plugins.lt-scrubber/activate-scrubber]
+```
+
 ## Inspiration
 This code is largely a port of Peter Flynn's [everyscrub](https://github.com/peterflynn/everyscrub) extension for the Brackets editor.
 

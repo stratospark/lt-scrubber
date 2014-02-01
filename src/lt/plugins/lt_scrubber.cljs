@@ -253,6 +253,15 @@
                       (when-let [ed (pool/last-active)]
                         (object/raise ed :scrubber.toggle!)))})
 
+;; This is a behavior users can add to different editor types
+;; to automatically enable mouse scrubbing
+(behavior ::activate-scrubber
+          :desc "Scrubber: Activate scrubbing mode"
+          :triggers #{:object.instant}
+          :type :user
+          :reaction (fn [editor]
+                      (scrubber-on editor)))
+
 ;; These commands nudge a value up or down
 (cmd/command {:command ::increment-value
               :desc "Scrubber: Increment selected value"
