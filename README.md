@@ -5,6 +5,8 @@ This is a [Light Table](https://github.com/LightTable/LightTable) plugin that wi
 
 It works great for visualizing CSS changes live, as well as for getting a feel for data flow through Clojure/Clojurescript code with form evaluation and watches.
 
+See it in action in this [screencast](http://quick.as/dwglfjgq)!
+
 ## Usage
 To activate, run the command **Editor: Toggle scrubbing mode**. Find a number that you want to scrub, hold down the **Command** or **Alt** key, then click and drag your mouse to the left or right. The more decimal places a value has, the slower it will increment or decrement, allowing you to dial in the exact amount.
 
