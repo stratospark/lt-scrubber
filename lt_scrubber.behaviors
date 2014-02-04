@@ -1,2 +1,5 @@
-{:+ {:app [(:lt.objs.plugins/load-js "scrubber_compiled.js" true)]
-     :editor [:lt.plugins.lt-scrubber/scrubber-toggle]}}
+{:+ {:app [(:lt.objs.plugins/load-js "scrubber_compiled.js" true)
+           (:lt.objs.plugins/load-keymap "scrubber.keymap")]
+     :editor [:lt.plugins.lt-scrubber/scrubber-toggle]
+     :editor.clojure [:lt.plugins.lt-scrubber/activate-scrubber]
+     :editor.css [:lt.plugins.lt-scrubber/activate-scrubber]}}

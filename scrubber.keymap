@@ -1,0 +1,2 @@
+{:+ {:editor {"shift-ctrl-up" [:lt.plugins.lt-scrubber/increment-value]
+              "shift-ctrl-down" [:lt.plugins.lt-scrubber/decrement-value]}}}

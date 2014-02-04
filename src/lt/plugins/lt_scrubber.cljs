@@ -97,6 +97,13 @@
 (get-next-value "0.00" 1)
 (get-next-value "0.00" -1)
 
+;; This sets/gets styles on an element if it exists. We are going
+;; to try to set/get styles on elements that a user may not have
+;; enabled, like line numbers.
+(defn try-to-get-or-set-css [selector attrs]
+  (when-let [d (dom/$ selector)]
+    (dom/css d attrs)))
+
 ;; This holds the global state for this plugin
 (def app-state (atom {:last-range 0
                       :origin ""}))
@@ -166,12 +173,12 @@
                        ;; to whatever it used to be after the handler is removed.
                        set-css-cursor (fn [cursors]
                                         (let [[val-1 val-2 val-3] cursors]
-                                          (dom/css (dom/$ ".CodeMirror-lines") {:cursor val-1})
-                                          (dom/css (dom/$ ".CodeMirror-gutter-elt") {:cursor val-2})
-                                          (dom/css (dom/$ "html") {:cursor val-3})))
-                       old-css-cursors [(dom/css (dom/$ ".CodeMirror-lines") :cursor)
-                                        (dom/css (dom/$ ".CodeMirror-gutter-elt") :cursor)
-                                        (dom/css (dom/$ "html") :cursor)]
+                                          (try-to-get-or-set-css ".CodeMirror-lines" {:cursor val-1})
+                                          (try-to-get-or-set-css ".CodeMirror-gutter-elt" {:cursor val-2})
+                                          (try-to-get-or-set-css "html" {:cursor val-3})))
+                       old-css-cursors [(try-to-get-or-set-css ".CodeMirror-lines" :cursor)
+                                        (try-to-get-or-set-css ".CodeMirror-gutter-elt" :cursor)
+                                        (try-to-set-css "html" :cursor)]
 
                        ;; Scrub based on how far the mouse moves left or right from select value
                        move-handler (fn [e]
