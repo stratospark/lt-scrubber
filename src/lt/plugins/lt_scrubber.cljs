@@ -178,7 +178,7 @@
                                           (try-to-get-or-set-css "html" {:cursor val-3})))
                        old-css-cursors [(try-to-get-or-set-css ".CodeMirror-lines" :cursor)
                                         (try-to-get-or-set-css ".CodeMirror-gutter-elt" :cursor)
-                                        (try-to-set-css "html" :cursor)]
+                                        (try-to-get-or-set-css "html" :cursor)]
 
                        ;; Scrub based on how far the mouse moves left or right from select value
                        move-handler (fn [e]
