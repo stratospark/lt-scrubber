@@ -152,11 +152,24 @@
                                              origin)
                               (swap! app-state update-in [:last-range :end :ch]
                                      #(+ (get-in last-range [:start :ch]) (count new-text)))
+
                               (editor/set-selection ed pos) ;; temporarily deselect text, so entire form evals
-                              (cmd/exec! :eval-editor-form) ;; TODO: is there anyway to speed this up?
-                              (editor/set-selection ed
-                                                    (get-in @app-state [:last-range :start])
-                                                    (get-in @app-state [:last-range :end])) ;; reselect text
+
+                              (if-not (object/has-tag? ed :editor.clj.instarepl)
+                                (cmd/exec! :eval-editor-form) ;; TODO: is there anyway to speed this up?
+                                  ;; TODO: use some kind of css style to denote currently scrubbing value
+                                  ;; selections are buggy, let's not use them for now
+                                  ;;(editor/set-selection ed
+                                  ;;                       (get-in @app-state [:last-range :start])
+                                  ;;                       (get-in @app-state [:last-range :end]))))
+
+                                ;; if instarepl mode
+                                (do
+                                  (if (= type :mouse)
+                                    (cmd/exec! :eval-editor-form)))
+                              )
+
+
                               ))))]
 
         ;; Update the state with this initial selected range before scrubbing
@@ -198,7 +211,9 @@
                        (.. window/document (removeEventListener "mousemove" move-handler))
                        (set-css-cursor old-css-cursors)))))
 
-          :keyboard (do-scrub! delta)))))
+          :keyboard (do-scrub! delta))
+
+        )))
 
 ;; We send the mouse-event to the scrub handler method for processing
 (defn mouse-down-fn [e]
